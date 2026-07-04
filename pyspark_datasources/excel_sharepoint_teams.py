@@ -306,7 +306,10 @@ class SharePointExcelDataSource(DataSource):
         Set to ``false`` when the sheet has no header; a custom schema must then be
         provided via ``.schema(...)``.
     sheet_name : str, optional
-        Name of the sheet to read. Defaults to the first sheet.
+        Name of the sheet to read. Defaults to the workbook's *active* sheet
+        (``openpyxl``'s ``Workbook.active``), which reflects whichever sheet was
+        selected the last time the file was saved in Excel — not necessarily the
+        first sheet by tab order. Pass ``sheet_name`` explicitly for deterministic reads.
     header_row : str, optional
         0-indexed row (within the sheet, after ``start_row`` is applied) to use as
         column headers. Default ``0``.
@@ -381,6 +384,35 @@ class SharePointExcelDataSource(DataSource):
     ...     .option("file_path", "/General/report.xlsx")
     ...     .option("sheet_name", "Q1 Report")
     ...     .option("nrows", "500")
+    ...     .load()
+    ... )
+    >>> df.show()
+
+    Read a sheet with the header on a later row and a custom typed schema restricted
+    to a column range (e.g. header on the 3rd row, data in columns C:G):
+
+    >>> from pyspark.sql.types import StructType, StructField, IntegerType, StringType, LongType, DoubleType
+    >>> schema = StructType([
+    ...     StructField("ID", IntegerType()),
+    ...     StructField("Name", StringType()),
+    ...     StructField("Department", StringType()),
+    ...     StructField("Salary", LongType()),
+    ...     StructField("hike", DoubleType()),
+    ... ])
+    >>> df = (
+    ...     spark.read.format("sharepoint_excel")
+    ...     .schema(schema)
+    ...     .option("tenant_id", "<tenant-id>")
+    ...     .option("client_id", "<client-id>")
+    ...     .option("client_secret", "<client-secret>")
+    ...     .option("site_host", "contoso.sharepoint.com")
+    ...     .option("site_path", "/sites/MySharePoint")
+    ...     .option("file_path", "/General/data.xlsx")
+    ...     .option("sheet_name", "Sheet2")
+    ...     .option("start_row", "2")       # header sits on the 3rd row; skip the 2 rows above it
+    ...     .option("header_row", "0")
+    ...     .option("start_column", "2")    # column C is 0-indexed position 2
+    ...     .option("use_columns", "ID,Name,Department,Salary,hike")  # caps the range at column G
     ...     .load()
     ... )
     >>> df.show()

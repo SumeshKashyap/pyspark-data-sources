@@ -76,6 +76,13 @@ df = (
 df.show()
 ```
 
+> **Note — default sheet behavior:** When `sheet_name` is omitted, the reader uses
+> `openpyxl`'s `Workbook.active`, which is **not** always the first sheet by tab order.
+> It reflects whichever sheet was marked as the *active tab* (`bookViews.activeTab`) the
+> last time the file was saved in Excel — e.g. if someone last had "Sheet2" selected when
+> saving, `wb.active` returns "Sheet2" even though "Sheet1" appears first. To read
+> deterministically, always pass `sheet_name` explicitly instead of relying on the default.
+
 ### Step 3: Read a specific sheet with a row limit
 
 ```python
@@ -140,7 +147,48 @@ df.printSchema()
 df.show()
 ```
 
-### Step 6: Write results to Parquet or Delta Lake
+### Step 6: Header on a later row, column range, custom typed schema
+
+Combine `start_row`, `header_row`, `start_column`, and `use_columns` to read a specific
+range with a typed schema — e.g. a sheet where the header sits on the 3rd row and the
+data lives in columns C:G:
+
+```python
+from pyspark.sql.types import StructType, StructField, IntegerType, StringType, LongType, DoubleType
+
+schema = StructType([
+    StructField("ID",         IntegerType()),
+    StructField("Name",       StringType()),
+    StructField("Department", StringType()),
+    StructField("Salary",     LongType()),
+    StructField("hike",       DoubleType()),
+])
+
+df = (
+    spark.read.format("sharepoint_excel")
+    .schema(schema)
+    .option("tenant_id",    "<tenant-id>")
+    .option("client_id",    "<client-id>")
+    .option("client_secret","<client-secret>")
+    .option("site_host",    "contoso.sharepoint.com")
+    .option("site_path",    "/sites/MySharePoint")
+    .option("file_path",    "/General/sales_report.xlsx")
+    .option("sheet_name",   "Sheet2")
+    .option("has_header",   "true")
+    # Header sits on the 3rd row of the sheet, so skip the 2 rows above it.
+    .option("start_row",    "2")
+    .option("header_row",   "0")
+    # Column C is 0-indexed position 2; drop columns A and B.
+    .option("start_column", "2")
+    # Restrict to columns C:G by name, dropping anything past G.
+    .option("use_columns",  "ID,Name,Department,Salary,hike")
+    .load()
+)
+df.printSchema()
+df.show()
+```
+
+### Step 7: Write results to Parquet or Delta Lake
 
 ```python
 # Write to Parquet
@@ -162,7 +210,7 @@ df.write.format("delta").save("/data/lake/delta/sales_report")
 | `site_host` | ✅ | SharePoint host (e.g., `contoso.sharepoint.com`) |
 | `site_path` | ✅ | Site path (e.g., `/sites/MySite` or `/teams/MyTeam`) |
 | `file_path` | ✅ | Drive-relative path to the Excel file (e.g., `/General/data.xlsx`) |
-| `sheet_name` | ➖ | Sheet name to read. Defaults to first sheet. |
+| `sheet_name` | ➖ | Sheet name to read. Defaults to the workbook's *active* sheet (see note below). |
 | `header_row` | ➖ | 0-indexed row number to use as column headers (pandas `header`). Default: `0`. |
 | `start_row` | ➖ | Number of rows to skip at the top before the header (pandas `skiprows`). Default: `0`. |
 | `start_column` | ➖ | 0-indexed column to start reading from; earlier columns are dropped. Default: `0`. |
