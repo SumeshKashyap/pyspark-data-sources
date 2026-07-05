@@ -3,6 +3,11 @@
 Read Excel files stored in **SharePoint Online** or **Microsoft Teams** document libraries
 directly into a Spark DataFrame — no intermediate files written to disk.
 
+> **Access requirement:** This is a **read-only** data source that authenticates as a
+> service principal (Azure AD app) via OAuth2 Client Credentials — there is no
+> interactive/delegated login. The app needs `Sites.Selected` (with an explicit site
+> grant, recommended) or `Sites.Read.All` for read access; see below for setup.
+
 ## Prerequisites
 
 ### Install dependencies
