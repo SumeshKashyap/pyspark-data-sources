@@ -391,7 +391,9 @@ class SharePointExcelDataSource(DataSource):
     Read a sheet with the header on a later row and a custom typed schema restricted
     to a column range (e.g. header on the 3rd row, data in columns C:G):
 
-    >>> from pyspark.sql.types import StructType, StructField, IntegerType, StringType, LongType, DoubleType
+    >>> from pyspark.sql.types import (
+    ...     StructType, StructField, IntegerType, StringType, LongType, DoubleType
+    ... )
     >>> schema = StructType([
     ...     StructField("ID", IntegerType()),
     ...     StructField("Name", StringType()),
